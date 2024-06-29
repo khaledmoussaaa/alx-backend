@@ -1,53 +1,72 @@
 #!/usr/bin/env python3
-"""
-LFU caching module
+""" BaseCaching module
 """
 from base_caching import BaseCaching
-from typing import Any, Optional
 
 
 class LFUCache(BaseCaching):
-    """ LFU cache class
     """
+    LFUCache defines a Least Frequently Used (LFU) caching system
+    """
+
     def __init__(self):
-        """ Initializes new instance
+        """
+        Initialize the class with the parent's init method
         """
         super().__init__()
-        self.counter = {}
+        self.usage = []
+        self.frequency = {}
 
-    def put(self, key: Any, item: Any) -> None:
-        """ Adds data to cache based on LRU policy
-            - Args:
-                - key: new entry's key
-                - item: entry's value
+    def put(self, key, item):
         """
-        if not key or not item:
+        Cache a key-value pair
+
+        Args:
+            key: The key of the item
+            item: The value to be cached
+        """
+        if key is None or item is None:
             return
-        counter = self.counter
-        new_cache_data = {key: item}
-        old_cache_data = self.cache_data.get(key)
-        if len(self.cache_data) == self.MAX_ITEMS and not old_cache_data:
-            key_to_remove = list(counter.keys())[0]
-            self.cache_data.pop(key_to_remove)
-            counter.pop(key_to_remove)
-            print(f'DISCARD: {key_to_remove}')
-        self.cache_data.update(new_cache_data)
-        counter.update({key: counter.get(key, 0) + 1})
-        counter = dict(sorted(counter.items(),
-                              key=lambda x: (x[1], x[0])))
 
-    def get(self, key: Any) -> Optional[Any]:
-        """ Gets cache data associated with given key
-            and updates dict in accordance to LFU policy
-            - Args:
-                - key to look for
-            - Return:
-                - value associated with the key
+        length = len(self.cache_data)
+        if length >= BaseCaching.MAX_ITEMS and key not in self.cache_data:
+            lfu = min(self.frequency.values())
+            lfu_keys = [k for k, v in self.frequency.items() if v == lfu]
+            if len(lfu_keys) > 1:
+                lru_lfu = {k: self.usage.index(k) for k in lfu_keys}
+                discard = min(lru_lfu, key=lru_lfu.get)
+            else:
+                discard = lfu_keys[0]
+
+            print(f"DISCARD: {discard}")
+            del self.cache_data[discard]
+            del self.usage[self.usage.index(discard)]
+            del self.frequency[discard]
+
+        if key in self.frequency:
+            self.frequency[key] += 1
+        else:
+            self.frequency[key] = 1
+
+        if key in self.usage:
+            self.usage.remove(key)
+
+        self.usage.append(key)
+        self.cache_data[key] = item
+
+    def get(self, key):
         """
-        cache_item = self.cache_data.get(key)
-        counter = self.counter
-        if cache_item:
-            counter.update({key: counter.get(key) + 1})
-            counter = dict(sorted(counter.items(),
-                                  key=lambda x: (x[1], x[0])))
-        return cache_item
+        Get the value associated with a given key from the cache
+
+        Args:
+            key: The key to look up in the cache
+
+        Returns:
+            The value associated with the key if found, None otherwise
+        """
+        if key in self.cache_data:
+            self.frequency[key] += 1
+            self.usage.remove(key)
+            self.usage.append(key)
+            return self.cache_data[key]
+        return None
